@@ -1,165 +1,218 @@
-from microbit import *
+####################################################################################
+# NOTE: This program has very bad variable names and the code is structured in     #
+#       questionable ways. This is due to the memory limitations of the micro:bit, #
+#       which resulted in some required trickery. Thank you for understanding.     #
+####################################################################################
 
-BRIGHTNESS_PLAYER = 9
-BRIGHTNESS_WALL = 6
-BRIGHTNESS_INDICATOR = 3
-DIRECTIONS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+from microbit import display, button_a, button_b, sleep, Image
+from gc import collect, mem_free
+from random import choice
+
+# Free up RAM if possible #
+collect()
+
+###########
+# Globals #
+###########
+DIRS = [(0, -1), (1, 0), (0, 1), (-1, 0)]
 DIR_UP = 0
 DIR_RIGHT = 1
 DIR_DOWN = 2
 DIR_LEFT = 3
 
 
-class Player:
-    def __init__(self, maze):
-        self.x = 0
-        self.y = 0
-        self.direction = DIR_DOWN
-        self.update_possible_directions(maze)
-
-    def change_direction(self):
-        self.direction = (self.direction + 1) % 4
-        while self.direction not in self.possible_directions:
-            self.direction = (self.direction + 1) % 4
-
-    def move(self, maze):
-        self.x += DIRECTIONS[self.direction][0]
-        self.y += DIRECTIONS[self.direction][1]
-        self.update_possible_directions(maze)
-
-    def update_possible_directions(self, maze):
-        tile = maze.cells[self.x + self.y * maze.width]
-        self.possible_directions = tile.get_directions()
-        if self.direction not in self.possible_directions:
-            self.direction = self.possible_directions[0]
-
-
-class Tile:
-    def __init__(self):
-        self.up = False
-        self.right = False
-        self.down = False
-        self.left = False
-
-    def render(self):
-        image = Image(3, 3)
-        for x in range(3):
-            for y in range(3):
-                image.set_pixel(x, y, BRIGHTNESS_WALL)
-        if self.up or self.right or self.down or self.left:
-            image.set_pixel(1, 1, 0)
-        if self.up:
-            image.set_pixel(1, 0, 0)
-        if self.right:
-            image.set_pixel(2, 1, 0)
-        if self.down:
-            image.set_pixel(1, 2, 0)
-        if self.left:
-            image.set_pixel(0, 1, 0)
-        return image
-
-    def get_directions(self):
-        directions = []
-        if self.up:
-            directions += DIR_UP
-        if self.right:
-            directions += DIR_RIGHT
-        if self.down:
-            directions += DIR_DOWN
-        if self.left:
-            directions += DIR_LEFT
-        return directions
-
-
-class Maze:
-    def __init__(self, width, height):
-        self.cells = []
-        self.width = width
-        self.height = height
-        self.time = 0
-        for x in range(width):
-            for y in range(height):
-                self.cells.append(Tile())
-        self.open_paths([(0, 0), (0, 1), (0, 2), (1, 2),
-                         (2, 2), (2, 1), (2, 0), (1, 0), (1, 1)])
-
-    def open_paths(self, list):
-        for i in range(len(list) - 1):
-            self.open_path(list[i], list[i + 1])
-
-    def open_path(self, a, b):
-        if a[0] > b[0]:
-            # a is right of b, open a's left side
-            self.cells[a[0] + a[1] * 3].left = True
-            # open b's right side
-            self.cells[b[0] + b[1] * 3].right = True
-        elif a[0] < b[0]:
-            # a is left of b, open a's right side
-            self.cells[a[0] + a[1] * 3].right = True
-            # open b's left side
-            self.cells[b[0] + b[1] * 3].left = True
-        elif a[1] > b[1]:
-            # a is down of b, open a's upside
-            self.cells[a[0] + a[1] * 3].up = True
-            # open b's downside
-            self.cells[b[0] + b[1] * 3].down = True
-        elif a[1] < b[1]:
-            # a is up of b, open a's downside
-            self.cells[a[0] + a[1] * 3].down = True
-            # open b's upside
-            self.cells[b[0] + b[1] * 3].up = True
-
-    def render(self, offset, indicator_dir):
-        # Create a "screen buffer"
-        image = Image(5, 5)
-
-        # Draw the walls of the maze
-        for x in range(3):
-            for y in range(3):
-                tile_x = x + offset[0]
-                tile_y = y + offset[1]
-                # Check if the tile is out of bounds
-                x_oob = tile_x < 0 or tile_x >= self.width
-                y_oob = tile_y < 0 or tile_y >= self.height
-                if x_oob or y_oob:
-                    tile = Tile()
-                else:
-                    tile = self.cells[tile_x + tile_y * self.width]
-                tile_image = tile.render()
-
-                # Copy the tile to the "screen buffer"
-                for tx in range(3):
-                    for ty in range(3):
-                        x_ = x * 2 + tx - 1
-                        y_ = y * 2 + ty - 1
-                        if x_ < 0 or y_ < 0 or x_ >= 5 or y_ >= 5:
-                            continue
-                        pixel = tile_image.get_pixel(tx, ty)
-                        image.set_pixel(x_, y_, pixel)
-
-        # Show the player in the middle of the screen
-        image.set_pixel(2, 2, BRIGHTNESS_PLAYER)
-        # Show the directional indicator (and blink it)
-        if self.time % 2 == 0:
-            indicator_x = 2 + 2 * DIRECTIONS[indicator_dir][0]
-            indicator_y = 2 + 2 * DIRECTIONS[indicator_dir][1]
-            image.set_pixel(indicator_x, indicator_y, BRIGHTNESS_INDICATOR)
-
-        self.time += 1
-
-        return image
-
-
+# Main function, this is ran at the bottom of the file #
 def main():
-    maze = Maze(3, 3)
-    player = Player(maze)
-    while True:
+    def generate_difficulty_img(diff):
+        img = Image(5, 5)
+        for i in range(diff + 1):
+            for j in range(i + 1):
+                img.set_pixel(i, 4 - j, 8)
+        return img
+
+    def render():
+        nonlocal gpos
+        nonlocal gdir
+        nonlocal gmove
+        cell_x = gpos[0] - 1
+        cell_y = gpos[1] - 1
+        s = render_cells((cell_x, cell_y), gmove)
+        s.set_pixel(2, 2, 8)
+        if time % 3 != 0 and gmove == (0, 0):
+            x = DIRS[gdir][0] * 2
+            y = DIRS[gdir][1] * 2
+            s.set_pixel(2 + x, 2 + y, 4)
+        gmove = (0, 0)
+        return s
+
+    def process_input():
+        nonlocal gpos
+        nonlocal gdir
+        nonlocal gmove
         if button_a.was_pressed():
-            player.move(maze)
+            gmove = DIRS[gdir]
+            gpos[0] += DIRS[gdir][0]
+            gpos[1] += DIRS[gdir][1]
+            # Re-direct if previous gdir is no longer possible
+            possible_dirs = get_passages(gpos[0], gpos[1])
+            while gdir not in possible_dirs:
+                gdir = (gdir + 1) % 4
         if button_b.was_pressed():
-            player.change_direction()
-        display.show(maze.render((-1, -1), player.dir))
-        sleep(300)
+            possible_dirs = get_passages(gpos[0], gpos[1])
+            gdir = (gdir + 1) % 4
+            while gdir not in possible_dirs:
+                gdir = (gdir + 1) % 4
+
+    def is_win():
+        nonlocal gpos
+        global g_w
+        global g_h
+        if gpos[0] == g_w - 1 and gpos[1] == g_h - 1:
+            return True
+        else:
+            return False
+
+    current_diff = 0
+    while True:
+        # Difficulty selector #
+        while True:
+            display.show(generate_difficulty_img(current_diff))
+            if button_b.was_pressed():
+                current_diff = (current_diff + 1) % 5
+            if button_a.was_pressed():
+                break
+
+        # The actual game #
+        time = 0
+        gdir = DIR_RIGHT
+        gpos = [0, 0]
+        gmove = (0, 0)
+        generate_cells(2 + current_diff)
+
+        while not is_win():
+            process_input()
+            display.show(render())
+            time += 1
+            sleep(50)
+        display.show(Image.HAPPY)
+        sleep(2000)
 
 
+#############
+# Map stuff #
+#############
+cells = []
+g_w = 0
+g_h = 0
+
+
+def generate_cells(size):
+    global g_w
+    global g_h
+    global cells
+    g_w = size
+    g_h = size
+    cells = [False] * size**2 * 2
+    for i in range(size**2):
+        generate_cell(i % size, int(i / size))
+
+
+def generate_cell(x, y):
+    dirs = []
+    if x > 0:
+        dirs.append(DIR_LEFT)
+    if y > 0:
+        dirs.append(DIR_UP)
+    if len(dirs) > 0:
+        direction = choice(dirs)
+        x2 = x + DIRS[direction][0]
+        y2 = y + DIRS[direction][1]
+        create_passage((x, y), (x2, y2))
+
+
+def create_passage(fc, tc):
+    global g_w
+    global cells
+    if fc[0] < tc[0]:
+        # "From" cell is left from "to", so set its right to open
+        cells[fc[0] + fc[1] * 2 * g_w] = True
+    if fc[0] > tc[0]:
+        # "From" cell is right from "to", so set "to's" right to open
+        cells[tc[0] + tc[1] * 2 * g_w] = True
+    if fc[1] < tc[1]:
+        # "From" cell is up from "to", so set its down to open
+        cells[fc[0] + (fc[1] * 2 + 1) * g_w] = True
+    if fc[1] > tc[1]:
+        # "From" cell is down from "to", so set "to's" down to open
+        cells[tc[0] + (tc[1] * 2 + 1) * g_w] = True
+
+
+def get_cell(x, y, down):
+    global cells
+    global g_w
+    global g_h
+    y *= 2
+    if down:
+        y += 1
+    if x < 0 or y < 0 or x >= g_w or y >= g_h * 2:
+        return False
+    else:
+        return cells[x + y * g_w]
+
+
+def get_passages(x, y):
+    dirs = []
+    if get_cell(x, y - 1, True):
+        dirs.append(DIR_UP)
+    if get_cell(x - 1, y, False):
+        dirs.append(DIR_LEFT)
+    if get_cell(x, y, True):
+        dirs.append(DIR_DOWN)
+    if get_cell(x, y, False):
+        dirs.append(DIR_RIGHT)
+    return dirs
+
+
+def render_cells(coff, poff):
+    global g_w
+    global g_h
+    screen = Image(5, 5)
+
+    def render_cell(x, y, b):
+        i = Image(3, 3)
+        for i_x in range(3):
+            for i_y in range(3):
+                i.set_pixel(i_x, i_y, 6)
+        dirs = get_passages(x, y)
+        if len(dirs) > 0:
+            i.set_pixel(1, 1, 9 if b else 0)
+        if DIR_UP in dirs:
+            i.set_pixel(1, 0, 0)
+        if DIR_LEFT in dirs:
+            i.set_pixel(0, 1, 0)
+        if DIR_DOWN in dirs:
+            i.set_pixel(1, 2, 0)
+        if DIR_RIGHT in dirs:
+            i.set_pixel(2, 1, 0)
+        return i
+
+    for cbx in range(3):
+        for cby in range(3):
+            cx = cbx + coff[0]
+            cy = cby + coff[1]
+            cimage = render_cell(cx, cy, cx == g_w - 1 and cy == g_h - 1)
+            for scx in range(3):
+                for scy in range(3):
+                    sx = cbx * 2 + scx - 1 + poff[0]
+                    sy = cby * 2 + scy - 1 + poff[1]
+                    x_oob = sx < 0 or sx >= 5
+                    y_oob = sy < 0 or sy >= 5
+                    if x_oob or y_oob:
+                        continue
+                    pixel = cimage.get_pixel(scx, scy)
+                    screen.set_pixel(sx, sy, pixel)
+    return screen
+
+
+# Execution #
 main()

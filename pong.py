@@ -1,27 +1,25 @@
-from microbit import *
 import random
+import radio
+from microbit import *
 
 PADDLE_LEFT = 0
 PADDLE_CENTER = 1
 PADDLE_RIGHT = 2
+
 GAME_RUNNING = 0
 GAME_WON = 1
 GAME_LOST = 2
-message = ""
 
-
-# Placeholder for testing without radio
-def send(msg):
-    global message
-    message = msg
-
-
-# Placeholder for testing without radio
-def receive():
-    global message
-    msg = message
-    message = ""
-    return msg
+IMAGE_SPAWNER = Image("00000:"
+                      "00100:"
+                      "01910:"
+                      "01210:"
+                      "19991")
+IMAGE_NOT_SPAWNER = Image("00000:"
+                          "00000:"
+                          "00000:"
+                          "01110:"
+                          "19991")
 
 
 class Ball:
@@ -77,16 +75,17 @@ def update_game(game):
     if future_x < 0 or future_x > 4:
         game.ball.vx *= -1
     if future_y > 4:
-        game.ball.passed = True
-        game.state = GAME_LOST
-        send("ponglost")
-    if future_y < 0:
+        game.ball.vy *= -1
+#        game.ball.passed = True
+#        game.state = GAME_LOST
+#        send("ponglost")
+    if future_y < 0 and not game.ball.passed:
         game.ball.passed = True
         x = 4 - game.ball.x
         y = game.ball.y
         vx = -game.ball.vx
         vy = -game.ball.vy
-        send("pongball {:d} {:d} {:d} {:d}".format(x, y, vx, vy))
+        radio.send("pongball {:d} {:d} {:d} {:d}".format(x, y, vx, vy))
     for coord in game.paddle.get_pixels():
         if coord[0] == int(future_x) and coord[1] == int(future_y):
             if random.randint(1, 2) == 1:
@@ -111,18 +110,34 @@ def draw_game(game):
 
 
 def main():
+    am_spawner = False
+    display.show(IMAGE_NOT_SPAWNER)
+    while True:
+        if button_a.was_pressed():
+            break
+        if button_b.was_pressed():
+            am_spawner = not am_spawner
+            if am_spawner:
+                display.show(IMAGE_SPAWNER)
+            else:
+                display.show(IMAGE_NOT_SPAWNER)
+
     game = Game()
+    game.ball.passed = not am_spawner
+    radio.on()
     while True:
         # Get radio messages
-        message = receive().split(" ")
-        if message[0] == "pongball":
-            game.ball.x = int(message[1])
-            game.ball.y = int(message[2])
-            game.ball.vx = int(message[3])
-            game.ball.vy = int(message[4])
-            game.ball.passed = False
-        if message[0] == "ponglost":
-            game.state = GAME_WON
+        received = radio.receive()
+        if received != None:
+            message = received.split(" ")
+            if message[0] == "pongball":
+                game.ball.x = int(message[1])
+                game.ball.y = int(message[2])
+                game.ball.vx = int(message[3])
+                game.ball.vy = int(message[4])
+                game.ball.passed = False
+            if message[0] == "ponglost":
+                game.state = GAME_WON
         # Update the game
         if game.state == GAME_RUNNING:
             update_game(game)

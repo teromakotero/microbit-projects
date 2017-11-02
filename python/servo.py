@@ -8,11 +8,16 @@ def main():
     # Tämä ohjelma pyörittää servoa edes takaisin. Pieni servodemo.
     write_angle(0)
     sleep(500)
-    for i in range(4):
-        write_angle(90)
-        sleep(500)
-        write_angle(60 + 60 * (i % 2))
-        sleep(500)
+    write_angle(90)
+    sleep(500)
+    write_angle(45)
+    sleep(500)
+    write_angle(90)
+    sleep(500)
+    write_angle(135)
+    sleep(500)
+    write_angle(90)
+    sleep(500)
     write_angle(180)
 
 # Servon ohjausfunktiot

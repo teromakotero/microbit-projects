@@ -21,19 +21,21 @@ def loop():
     # Lasketaan matka
     distance = duration_to_distance(duration)
     # Esitetään matka LED-ruudulla
-    show_distance(distance)
+    #show_distance(distance)
+    #display.set_pixel(0,0,9)
+    display.scroll("D: " + str(distance))
 
 
 # Käynnistä kaiku (mittaamista varten)
 def trigger_echo():
     # Varmistetaan että TRIG on pois päältä
-    PIN_TRIG.write_digital(False)
-    sleep(5)
-    # Käynnistetään TRIG
     PIN_TRIG.write_digital(True)
-    sleep(10)
-    # Pistetään taas TRIG pois päältä
+    sleep(1)
+    # Käynnistetään TRIG
     PIN_TRIG.write_digital(False)
+#    sleep(10)
+    # Pistetään taas TRIG pois päältä
+#    PIN_TRIG.write_digital(False)
 
 
 # Mittaa kaiun pituus
@@ -42,17 +44,17 @@ def poll_duration():
     start_time = running_time()
     # While pyörii kunnes ECHO pin aktivoituu (tai menee liian pitkään)
     while not PIN_ECHO.read_digital():
-        if running_time() - start_time > 100:
+        if running_time() - start_time > 5000:
             # Palautetaan oletusarvo koska ECHO pinillä meni liian pitkään
-            return 0
+            return -1.0 * 2.0 * 29.1
 
     # ECHO pin on aktiivinen, mitataan kuinka kauan
     start_time = running_time()
     # While pyörii kunnes ECHO pin epäaktivoituu (tai menee liian pitkään)
     while PIN_ECHO.read_digital():
-        if running_time() - start_time > 100:
+        if running_time() - start_time > 5000:
             # Palautetaan oletusarvo koska ECHO pinillä meni liian pitkään
-            return 0
+            return 1000.0 * 2.0 * 29.1
 
     # Palautetaan kuinka pitkään meni (nykyhetki - aloitushetki)
     return running_time() - start_time

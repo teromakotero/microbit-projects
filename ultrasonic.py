@@ -21,9 +21,9 @@ def loop():
     # Lasketaan matka
     distance = duration_to_distance(duration)
     # Esitetään matka LED-ruudulla
-    #show_distance(distance)
-    #display.set_pixel(0,0,9)
-    display.scroll("D: " + str(distance))
+    show_distance(distance)
+    display.set_pixel(0,0,9)
+    #display.scroll("D: " + str(distance))
 
 
 # Käynnistä kaiku (mittaamista varten)

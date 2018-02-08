@@ -1,6 +1,14 @@
 from microbit import *
 import radio
 
+# Servo
+MIN_VOLTAGE = 0.02
+MAX_VOLTAGE = 0.12
+
+# Motor
+#MIN_VOLTAGE = 0.0
+#MAX_VOLTAGE = 1.0
+
 pin0.set_analog_period(20) # Valmistellaan pin0 servoa varten (asetetaan PWM periodi 20 millisekuntiin)
 
 radio.on() # Radio päälle
@@ -12,7 +20,7 @@ while True: # Toistetaan ikuisesti
 
     if viesti != None: # Viesti löytyi!
         potentiometri = int(viesti) # Muutetaan viesti luvuksi
-        dc = potentiometri * 0.1 + 0.02 # Muokataan potentiometrin arvo sopivaksi (2% ja 12% välille)
+        dc = potentiometri * (MAX_VOLTAGE - MIN_VOLTAGE) + MIN_VOLTAGE # Muokataan potentiometrin arvo sopivaksi (2% ja 12% välille)
         pin0.write_analog(dc) # Liikutetaan servoa
 
     sleep(10) # Nukutaan 10 millisekuntia jottei toistolause mene liian nopeasti

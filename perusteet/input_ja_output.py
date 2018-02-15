@@ -1,4 +1,4 @@
-# Kytke nappi pietsokaiutin pinniin 1 ja gnd-porttiin. Nappin voita rakentaa kytkemalla johdon
+# Kytke nappi pietsokaiutin pinniin 1 ja gnd-porttiin. Napin voit rakentaa kytkemalla johdon
 # maadoitukseen, ja koskettamalla digiporttia 0.
 
 from microbit import *
